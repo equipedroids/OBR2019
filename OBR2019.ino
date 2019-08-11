@@ -3,27 +3,16 @@
 FalconRobotMotors motors(5, 7, 6, 8);
 #define DEFAULT_SPEED 30
 
-#define ID_BLACK 1000
-FalconRobotLineSensor leftId(A0);
-int leftIdValue;
-FalconRobotLineSensor middleId(A1);
-int middleIdValue;
-FalconRobotLineSensor rightId(A2);
-int rightIdValue;
-
 FalconRobotLineSensor left(A3);
 int leftValue;
-#define LEFT_BORDER 964
+#define LEFT_WHITE 880
+#define LEFT_BLACK 975
+#define LEFT_BORDER 960
 FalconRobotLineSensor right(A4);
 int rightValue;
-#define RIGHT_BORDER 916
-
-FalconRobotLineSensor leftGap(A5);
-int leftGapValue;
-#define LEFT_GAP_BORDER 984
-FalconRobotLineSensor rightGap(A6);
-int rightGapValue;
-#define RIGHT_GAP_BORDER 965
+#define RIGHT_WHITE 860
+#define RIGHT_BLACK 965
+#define RIGHT_BORDER 910
 
 void setup() {
   Serial.begin(9600);
@@ -31,77 +20,33 @@ void setup() {
 }
 
 void readLineSensors(){
-  leftIdValue = leftId.read();
-  middleIdValue = middleId.read();
-  rightIdValue = rightId.read();
   leftValue = left.read();
   rightValue = right.read();
-  leftGapValue = leftGap.read();
-  rightGapValue = rightGap.read();
 }
 
 void printLineSensors(){
-  Serial.print(leftIdValue);
-  Serial.print("\t");
-  Serial.print(middleIdValue);
-  Serial.print("\t");
-  Serial.print(rightIdValue);
-  Serial.print("\t");
+  Serial.print("left: ");
   Serial.print(leftValue);
   Serial.print("\t");
-  Serial.print(rightValue);
-  Serial.print("\t");
-  Serial.print(leftGapValue);
-  Serial.print("\t");
-  Serial.println(rightGapValue);
+  Serial.print("right: ");
+  Serial.println(rightValue); 
 }
 
 int isInTarget(){
-  bool leftIdInTarget = false;
-  bool middleIdInTarget = false;
-  bool rightIdInTarget = false;
   bool leftInTarget = false;
   bool rightInTarget = false;
-  bool leftGapInTarget = false;
-  bool rightGapInTarget = false;
-
-  if(leftIdValue >= ID_BLACK-30){ leftIdInTarget = true; }
-  if(middleIdValue >= ID_BLACK-30){ middleIdInTarget = true; }
-  if(rightIdValue >= ID_BLACK-30){ rightIdInTarget = true; }
   if(leftValue >= LEFT_BORDER-15 && leftValue <= LEFT_BORDER+15){ leftInTarget = true; }
   if(rightValue >= RIGHT_BORDER-15 && rightValue <= RIGHT_BORDER+15){ rightInTarget = true; }
-  if(leftGapValue >= LEFT_GAP_BORDER-15 && leftGapValue <= LEFT_GAP_BORDER+15){ leftGapInTarget = true; }
-  if(rightGapValue >= RIGHT_GAP_BORDER-15 && rightGapValue <= RIGHT_GAP_BORDER+15){ rightGapInTarget = true; }
-  
-  if(leftIdInTarget && middleIdInTarget && rightIdInTarget){ return 123; }
-  else if(leftIdInTarget && middleIdInTarget){ return 12; }
-  else if(middleIdInTarget && rightIdInTarget){ return 23; }
-  else if(leftInTarget && rightInTarget){ return 45; }
-  else if(!leftIdInTarget && !middleIdInTarget && !rightIdInTarget && !leftInTarget && !rightInTarget){ return 67; }
-  else{ return 10; }
+  if(leftInTarget && rightInTarget){ return 1; }
+  else{ return 2; }
 }
 
-void lineFollower(bool inGap){
+void lineFollower(){
   int leftVelocity, leftDirection = FORWARD;
   int rightVelocity, rightDirection = FORWARD;
-  int leftV, leftTarget;
-  int rightV, rightTarget;
   const float Kp = 0.55;
-
-  if(inGap){
-    leftV = leftGapValue;
-    leftTarget = LEFT_GAP_BORDER;
-    rightV = rightGapValue;
-    rightTarget = RIGHT_GAP_BORDER;
-  }else{
-    leftV = leftValue;
-    leftTarget = LEFT_BORDER;
-    rightV = rightValue;
-    rightTarget = RIGHT_BORDER;
-  }
-  
-  leftVelocity = (leftV - leftTarget)*Kp;
-  rightVelocity = (rightV - rightTarget)*Kp;
+  leftVelocity = (leftValue - LEFT_BORDER)*Kp;
+  rightVelocity = (rightValue - RIGHT_BORDER)*Kp;
   if(leftVelocity < 0){
     leftVelocity *= -1;
     leftDirection = BACKWARD;
@@ -122,35 +67,12 @@ void lineFollower(bool inGap){
 
 void loop() {
   readLineSensors();
-  printLineSensors();
   switch(isInTarget()){
-    case 123:
-      motors.drive(DEFAULT_SPEED, FORWARD);
-      delay(100);
-      break;
-    case 12: 
-      motors.leftDrive(DEFAULT_SPEED, BACKWARD);
-      motors.rightDrive(DEFAULT_SPEED, FORWARD);
-      delay(1000);
-      break;
-    case 23:
-      motors.leftDrive(DEFAULT_SPEED, FORWARD);
-      motors.rightDrive(DEFAULT_SPEED, BACKWARD);
-      delay(1000);
-      break;
-    case 45:
-      Serial.println("condição ideal");
+    case 1:
       motors.drive(DEFAULT_SPEED, FORWARD);
       break;
-    case 67:
-      Serial.println("gap");
-      //lineFollower(true);
-      motors.drive(DEFAULT_SPEED, FORWARD);
-      delay(50);
-      break;
-    case 10:
-      Serial.println("segue-linha");
-      lineFollower(false);
+    case 2:
+      lineFollower();
       break;
   }
 }
