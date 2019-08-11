@@ -13,17 +13,17 @@ int rightIdValue;
 
 FalconRobotLineSensor left(A3);
 int leftValue;
-#define LEFT_BORDER 953
+#define LEFT_BORDER 964
 FalconRobotLineSensor right(A4);
 int rightValue;
-#define RIGHT_BORDER 936
+#define RIGHT_BORDER 916
 
 FalconRobotLineSensor leftGap(A5);
 int leftGapValue;
-#define LEFT_GAP_BORDER 987
+#define LEFT_GAP_BORDER 984
 FalconRobotLineSensor rightGap(A6);
 int rightGapValue;
-#define RIGHT_GAP_BORDER 964
+#define RIGHT_GAP_BORDER 965
 
 void setup() {
   Serial.begin(9600);
@@ -84,9 +84,24 @@ int isInTarget(){
 void lineFollower(bool inGap){
   int leftVelocity, leftDirection = FORWARD;
   int rightVelocity, rightDirection = FORWARD;
+  int leftV, leftTarget;
+  int rightV, rightTarget;
   const float Kp = 0.55;
-  leftVelocity = (leftValue - LEFT_BORDER)*Kp;
-  rightVelocity = (rightValue - RIGHT_BORDER)*Kp;
+
+  if(inGap){
+    leftV = leftGapValue;
+    leftTarget = LEFT_GAP_BORDER;
+    rightV = rightGapValue;
+    rightTarget = RIGHT_GAP_BORDER;
+  }else{
+    leftV = leftValue;
+    leftTarget = LEFT_BORDER;
+    rightV = rightValue;
+    rightTarget = RIGHT_BORDER;
+  }
+  
+  leftVelocity = (leftV - leftTarget)*Kp;
+  rightVelocity = (rightV - rightTarget)*Kp;
   if(leftVelocity < 0){
     leftVelocity *= -1;
     leftDirection = BACKWARD;
@@ -110,32 +125,31 @@ void loop() {
   printLineSensors();
   switch(isInTarget()){
     case 123:
-      //Serial.println("intersecção de 3");
       motors.drive(DEFAULT_SPEED, FORWARD);
       delay(100);
       break;
-    case 12:
-      //Serial.println("90 esquerda");
+    case 12: 
       motors.leftDrive(DEFAULT_SPEED, BACKWARD);
       motors.rightDrive(DEFAULT_SPEED, FORWARD);
-      delay(420);
+      delay(1000);
       break;
     case 23:
-      //Serial.println("90 direita");
       motors.leftDrive(DEFAULT_SPEED, FORWARD);
       motors.rightDrive(DEFAULT_SPEED, BACKWARD);
-      delay(420);
+      delay(1000);
       break;
     case 45:
-      //Serial.println("condição ideal");
+      Serial.println("condição ideal");
       motors.drive(DEFAULT_SPEED, FORWARD);
       break;
     case 67:
-      //Serial.println("gap");
-      lineFollower(true);
+      Serial.println("gap");
+      //lineFollower(true);
+      motors.drive(DEFAULT_SPEED, FORWARD);
+      delay(50);
       break;
     case 10:
-      //Serial.println("segue-linha");
+      Serial.println("segue-linha");
       lineFollower(false);
       break;
   }
