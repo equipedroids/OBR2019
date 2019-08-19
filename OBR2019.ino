@@ -1,12 +1,16 @@
+/* BIBLIOTECAS */
 #include <FalconRobot.h>
 
+/* MOTORES */
 FalconRobotMotors motors(5, 7, 6, 8);
 #define DEFAULT_SPEED 25
-  
+
+/* ULTRASSÔNICO */
 FalconRobotDistanceSensor distanceSensor(2, 3);
 #define DEFAULT_DISTANCE 10
 int distance;
 
+/* REFLECTÂNCIA (IDENTIFICADORES) */
 #define ID_BLACK 990
 FalconRobotLineSensor leftId(A0);
 int leftIdValue;
@@ -15,20 +19,16 @@ int middleIdValue;
 FalconRobotLineSensor rightId(A2);
 int rightIdValue;
 
+/* REFLECTÂNCIA (SEGUE-LINHA) */
 FalconRobotLineSensor left(A3);
 int leftValue;
-#define LEFT_WHITE 940
+#define LEFT_WHITE 947
 FalconRobotLineSensor right(A4);
 int rightValue;
-#define RIGHT_WHITE 927
+#define RIGHT_WHITE 935
 
+/* ARDUINOS EXTERNOS */
 #define PIN_ARDUINO 5
-
-void setup() {
-  Serial.begin(9600);
-  pinMode(PIN_ARDUINO,INPUT);
-  delay(2000);
-}
 
 void readLineSensors(){
   leftIdValue = leftId.read();
@@ -76,11 +76,11 @@ void lineFollower(){
 
 void rotate(String way){
   if(way == "to left"){
-    motors.leftDrive(DEFAULT_SPEED+20, BACKWARD);
-    motors.rightDrive(DEFAULT_SPEED, FORWARD);
+    motors.leftDrive(DEFAULT_SPEED, BACKWARD);
+    motors.rightDrive(DEFAULT_SPEED+20, FORWARD);
   }else if(way == "to right"){
-    motors.leftDrive(DEFAULT_SPEED, FORWARD);
-    motors.rightDrive(DEFAULT_SPEED+20, BACKWARD);
+    motors.leftDrive(DEFAULT_SPEED+20, FORWARD);
+    motors.rightDrive(DEFAULT_SPEED, BACKWARD);
   }
 }
 
@@ -105,6 +105,11 @@ void deviateObstacles(){
   }
 }
 
+int solveIntersection(){
+  Serial.println(digitalRead(PIN_ARDUINO));
+  if(digitalRead(PIN_ARDUINO) == HIGH){ rotate("to left"); }
+}
+
 int isInTarget(){
   bool leftIdInTarget = false;
   bool middleIdInTarget = false;
@@ -124,18 +129,12 @@ int isInTarget(){
   else if(middleIdInTarget && leftInTarget && rightInTarget){ return 45; } // ideal
   else if(!leftIdInTarget && !middleIdInTarget && !rightIdInTarget && leftInTarget && rightInTarget){ return 67; } // gap
   else{ return 10; } //linha
-  
-  if(leftIdInTarget && middleIdInTarget && rightIdInTarget){return 123; } // 3
-  else if(leftIdInTarget && middleIdInTarget){ return 12; } // 90 e
-  else if(middleIdInTarget && rightIdInTarget){ return 23; } // 90 d
-  else if(middleIdInTarget && leftInTarget && rightInTarget){ return 45; } // ideal
-  else if(!leftIdInTarget && !middleIdInTarget && !rightIdInTarget && leftInTarget && rightInTarget){ return 67; } // gap
-  else{ return 10; } //linha
 }
 
-int solveIntersection(){
-  Serial.println(digitalRead(PIN_ARDUINO));
-  if(digitalRead(PIN_ARDUINO) == HIGH){ rotate("to left"); }
+void setup() {
+  Serial.begin(9600);
+  pinMode(PIN_ARDUINO,INPUT);
+  delay(2000);
 }
 
 void loop() {
@@ -145,29 +144,29 @@ void loop() {
   //solveIntersection();
   
   switch(isInTarget()){
+    //INTERSECÇÃO EM FORMATO DE CRUZ
     case 123:
-      Serial.println("3");
       motors.drive(DEFAULT_SPEED, FORWARD);
       break;
+    //90º PARA A ESQUERDA
     case 12:
-      Serial.println("90 e");
       rotate("to left");
       break;
+    //90º PARA A DIREITA
     case 23:
-      Serial.println("90 d");
       rotate("to right");
       break;
+    //CONDIÇÃO IDEAL
     case 45:
-      Serial.println("ideal");
       motors.drive(DEFAULT_SPEED, FORWARD);
       break;
+    //GAP
     case 67:
-      Serial.println("gap");
       motors.drive(DEFAULT_SPEED, FORWARD);
-      delay(500);
+      //delay(500);
       break;
+    //SEGUE-LINHA
     case 10:
-      Serial.println("lf");
       lineFollower();
       break;
   }
