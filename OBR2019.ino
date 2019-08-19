@@ -1,9 +1,13 @@
 #include <FalconRobot.h>
 
 FalconRobotMotors motors(5, 7, 6, 8);
-#define DEFAULT_SPEED 30
+#define DEFAULT_SPEED 25
+  
+FalconRobotDistanceSensor distanceSensor(2, 3);
+#define DEFAULT_DISTANCE 10
+int distance;
 
-#define ID_BLACK 1000
+#define ID_BLACK 990
 FalconRobotLineSensor leftId(A0);
 int leftIdValue;
 FalconRobotLineSensor middleId(A1);
@@ -13,21 +17,17 @@ int rightIdValue;
 
 FalconRobotLineSensor left(A3);
 int leftValue;
-#define LEFT_BORDER 964
+#define LEFT_WHITE 940
 FalconRobotLineSensor right(A4);
 int rightValue;
-#define RIGHT_BORDER 916
+#define RIGHT_WHITE 927
 
-FalconRobotLineSensor leftGap(A5);
-int leftGapValue;
-#define LEFT_GAP_BORDER 984
-FalconRobotLineSensor rightGap(A6);
-int rightGapValue;
-#define RIGHT_GAP_BORDER 965
+#define PIN_ARDUINO 5
 
 void setup() {
   Serial.begin(9600);
-  delay(1000);
+  pinMode(PIN_ARDUINO,INPUT);
+  delay(2000);
 }
 
 void readLineSensors(){
@@ -36,8 +36,6 @@ void readLineSensors(){
   rightIdValue = rightId.read();
   leftValue = left.read();
   rightValue = right.read();
-  leftGapValue = leftGap.read();
-  rightGapValue = rightGap.read();
 }
 
 void printLineSensors(){
@@ -49,59 +47,17 @@ void printLineSensors(){
   Serial.print("\t");
   Serial.print(leftValue);
   Serial.print("\t");
-  Serial.print(rightValue);
-  Serial.print("\t");
-  Serial.print(leftGapValue);
-  Serial.print("\t");
-  Serial.println(rightGapValue);
+  Serial.println(rightValue);
 }
 
-int isInTarget(){
-  bool leftIdInTarget = false;
-  bool middleIdInTarget = false;
-  bool rightIdInTarget = false;
-  bool leftInTarget = false;
-  bool rightInTarget = false;
-  bool leftGapInTarget = false;
-  bool rightGapInTarget = false;
-
-  if(leftIdValue >= ID_BLACK-30){ leftIdInTarget = true; }
-  if(middleIdValue >= ID_BLACK-30){ middleIdInTarget = true; }
-  if(rightIdValue >= ID_BLACK-30){ rightIdInTarget = true; }
-  if(leftValue >= LEFT_BORDER-15 && leftValue <= LEFT_BORDER+15){ leftInTarget = true; }
-  if(rightValue >= RIGHT_BORDER-15 && rightValue <= RIGHT_BORDER+15){ rightInTarget = true; }
-  if(leftGapValue >= LEFT_GAP_BORDER-15 && leftGapValue <= LEFT_GAP_BORDER+15){ leftGapInTarget = true; }
-  if(rightGapValue >= RIGHT_GAP_BORDER-15 && rightGapValue <= RIGHT_GAP_BORDER+15){ rightGapInTarget = true; }
-  
-  if(leftIdInTarget && middleIdInTarget && rightIdInTarget){ return 123; }
-  else if(leftIdInTarget && middleIdInTarget){ return 12; }
-  else if(middleIdInTarget && rightIdInTarget){ return 23; }
-  else if(leftInTarget && rightInTarget){ return 45; }
-  else if(!leftIdInTarget && !middleIdInTarget && !rightIdInTarget && !leftInTarget && !rightInTarget){ return 67; }
-  else{ return 10; }
-}
-
-void lineFollower(bool inGap){
-  int leftVelocity, leftDirection = FORWARD;
-  int rightVelocity, rightDirection = FORWARD;
-  int leftV, leftTarget;
-  int rightV, rightTarget;
+void lineFollower(){
+  int leftVelocity = 0, leftDirection = FORWARD;
+  int rightVelocity = 0, rightDirection = FORWARD;
   const float Kp = 0.55;
-
-  if(inGap){
-    leftV = leftGapValue;
-    leftTarget = LEFT_GAP_BORDER;
-    rightV = rightGapValue;
-    rightTarget = RIGHT_GAP_BORDER;
-  }else{
-    leftV = leftValue;
-    leftTarget = LEFT_BORDER;
-    rightV = rightValue;
-    rightTarget = RIGHT_BORDER;
-  }
   
-  leftVelocity = (leftV - leftTarget)*Kp;
-  rightVelocity = (rightV - rightTarget)*Kp;
+  leftVelocity = (leftValue - (LEFT_WHITE+30))*Kp;
+  rightVelocity = (rightValue - (RIGHT_WHITE+30))*Kp;
+  
   if(leftVelocity < 0){
     leftVelocity *= -1;
     leftDirection = BACKWARD;
@@ -110,47 +66,109 @@ void lineFollower(bool inGap){
     rightVelocity *= -1;
     rightDirection = BACKWARD;
   }
+  
   leftVelocity = map(leftVelocity, 0, 30, 30, 40);
   rightVelocity = map(rightVelocity, 0, 30, 30, 40);
-  if(rightVelocity < 30 && leftVelocity < 30){
-    motors.drive(DEFAULT_SPEED, FORWARD);
-  }else{
-    motors.leftDrive(rightVelocity, rightDirection);
-    motors.rightDrive(leftVelocity, leftDirection);
+  
+  motors.leftDrive(rightVelocity, rightDirection);
+  motors.rightDrive(leftVelocity, leftDirection);
+}
+
+void rotate(String way){
+  if(way == "to left"){
+    motors.leftDrive(DEFAULT_SPEED+20, BACKWARD);
+    motors.rightDrive(DEFAULT_SPEED, FORWARD);
+  }else if(way == "to right"){
+    motors.leftDrive(DEFAULT_SPEED, FORWARD);
+    motors.rightDrive(DEFAULT_SPEED+20, BACKWARD);
   }
+}
+
+void deviateObstacles(){
+  distance = distanceSensor.read();
+  
+  if(distance <= DEFAULT_DISTANCE){
+    rotate("to left");
+    motors.drive(DEFAULT_SPEED, FORWARD);
+    delay(1200);
+    rotate("to right");
+    motors.drive(DEFAULT_SPEED, FORWARD);
+    delay(1200);
+    rotate("to right");
+    while(middleIdValue < ID_BLACK-10){
+      middleIdValue = middleId.read();
+      motors.drive(DEFAULT_SPEED, FORWARD);
+    }
+    motors.stop();
+    delay(500);
+    rotate("to left");
+  }
+}
+
+int isInTarget(){
+  bool leftIdInTarget = false;
+  bool middleIdInTarget = false;
+  bool rightIdInTarget = false;
+  bool leftInTarget = false;
+  bool rightInTarget = false;
+
+  if(leftIdValue >= ID_BLACK-10){ leftIdInTarget = true; }
+  if(middleIdValue >= ID_BLACK-10){ middleIdInTarget = true; }
+  if(rightIdValue >= ID_BLACK-10){ rightIdInTarget = true; }
+  if(leftValue <= LEFT_WHITE+30){ leftInTarget = true; }
+  if(rightValue <= RIGHT_WHITE+30){ rightInTarget = true; }
+
+  if(leftIdInTarget && middleIdInTarget && rightIdInTarget){return 123; } // 3
+  else if(leftIdInTarget && middleIdInTarget){ return 12; } // 90 e
+  else if(middleIdInTarget && rightIdInTarget){ return 23; } // 90 d
+  else if(middleIdInTarget && leftInTarget && rightInTarget){ return 45; } // ideal
+  else if(!leftIdInTarget && !middleIdInTarget && !rightIdInTarget && leftInTarget && rightInTarget){ return 67; } // gap
+  else{ return 10; } //linha
+  
+  if(leftIdInTarget && middleIdInTarget && rightIdInTarget){return 123; } // 3
+  else if(leftIdInTarget && middleIdInTarget){ return 12; } // 90 e
+  else if(middleIdInTarget && rightIdInTarget){ return 23; } // 90 d
+  else if(middleIdInTarget && leftInTarget && rightInTarget){ return 45; } // ideal
+  else if(!leftIdInTarget && !middleIdInTarget && !rightIdInTarget && leftInTarget && rightInTarget){ return 67; } // gap
+  else{ return 10; } //linha
+}
+
+int solveIntersection(){
+  Serial.println(digitalRead(PIN_ARDUINO));
+  if(digitalRead(PIN_ARDUINO) == HIGH){ rotate("to left"); }
 }
 
 void loop() {
   readLineSensors();
   printLineSensors();
+  //deviateObstacles();
+  //solveIntersection();
+  
   switch(isInTarget()){
     case 123:
+      Serial.println("3");
       motors.drive(DEFAULT_SPEED, FORWARD);
-      delay(100);
       break;
-    case 12: 
-      motors.leftDrive(DEFAULT_SPEED, BACKWARD);
-      motors.rightDrive(DEFAULT_SPEED, FORWARD);
-      delay(1000);
+    case 12:
+      Serial.println("90 e");
+      rotate("to left");
       break;
     case 23:
-      motors.leftDrive(DEFAULT_SPEED, FORWARD);
-      motors.rightDrive(DEFAULT_SPEED, BACKWARD);
-      delay(1000);
+      Serial.println("90 d");
+      rotate("to right");
       break;
     case 45:
-      Serial.println("condição ideal");
+      Serial.println("ideal");
       motors.drive(DEFAULT_SPEED, FORWARD);
       break;
     case 67:
       Serial.println("gap");
-      //lineFollower(true);
       motors.drive(DEFAULT_SPEED, FORWARD);
-      delay(50);
+      delay(500);
       break;
     case 10:
-      Serial.println("segue-linha");
-      lineFollower(false);
+      Serial.println("lf");
+      lineFollower();
       break;
   }
 }
